@@ -8,6 +8,8 @@ const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1N
 const supabase = createClient(supabaseUrl, supabaseKey);
 
 const ACCESS_CODE = 'jessi2026';
+const SESSION_KEY = 'raffle_auth_session';
+const SESSION_DURATION = 7 * 24 * 60 * 60 * 1000; // 7 días en milisegundos
 
 const PRIZES = [
   '1_remera deportiva de hombre',
@@ -19,9 +21,9 @@ const PRIZES = [
   '7_perfume Monique de hombre',
   '8_perfume de mujer Monique',
   '9_remera de algodón',
-  '10_porta sahumerio.',
-  '11_Una oferta de hamburuesas especial + papas fritas.',
-  '12_Un alisado.',
+  '10_porta sahumerio',
+  '11_Una oferta de hamburguesas especial + papas fritas',
+  '12_Un alisado'
 ];
 
 const SELLERS = ['Jessica', 'Rama'];
@@ -49,6 +51,28 @@ function App() {
   const [showBuyersList, setShowBuyersList] = useState(false);
   const [selectedBuyer, setSelectedBuyer] = useState(null);
   const [showBuyerModal, setShowBuyerModal] = useState(false);
+
+  // Verificar sesión guardada al cargar
+  useEffect(() => {
+    const savedSession = localStorage.getItem(SESSION_KEY);
+    if (savedSession) {
+      try {
+        const session = JSON.parse(savedSession);
+        const now = new Date().getTime();
+        
+        // Verificar si la sesión no ha expirado
+        if (session.expiresAt > now) {
+          setIsAuthenticated(true);
+        } else {
+          // Sesión expirada, limpiar
+          localStorage.removeItem(SESSION_KEY);
+        }
+      } catch (err) {
+        console.error('Error al cargar sesión:', err);
+        localStorage.removeItem(SESSION_KEY);
+      }
+    }
+  }, []);
 
   useEffect(() => {
     if (isAuthenticated) {
@@ -87,12 +111,26 @@ function App() {
 
   const handleLogin = (e) => {
     e.preventDefault();
-    if (code === ACCESS_CODE) {
+    const trimmedCode = code.trim(); // Quitar espacios automáticamente
+    
+    if (trimmedCode === ACCESS_CODE) {
       setIsAuthenticated(true);
       setError('');
+      
+      // Guardar sesión en localStorage
+      const session = {
+        authenticated: true,
+        expiresAt: new Date().getTime() + SESSION_DURATION
+      };
+      localStorage.setItem(SESSION_KEY, JSON.stringify(session));
     } else {
       setError('Código incorrecto');
     }
+  };
+
+  const handleLogout = () => {
+    setIsAuthenticated(false);
+    localStorage.removeItem(SESSION_KEY);
   };
 
   const handleNumberClick = (num) => {
@@ -182,50 +220,46 @@ function App() {
   };
 
   const handleDeleteNumber = async () => {
-  if (!editingNumber) return;
+    if (!editingNumber) return;
 
-  if (!confirm('¿Estás seguro de eliminar esta compra?')) return;
+    if (!confirm('¿Estás seguro de eliminar esta compra?')) return;
 
-  setLoading(true);
-  setError('');
-  
-  try {
-    // console.log('Eliminando número:', editingNumber.number); // Para debug
+    setLoading(true);
+    setError('');
     
-    const { error } = await supabase
-      .from('raffle_numbers')
-      .delete()
-      .eq('number', editingNumber.number);
+    try {
+      const { error } = await supabase
+        .from('raffle_numbers')
+        .delete()
+        .eq('number', editingNumber.number);
 
-    if (error) {
-      console.error('Error de Supabase:', error);
-      throw error;
+      if (error) {
+        console.error('Error de Supabase:', error);
+        throw error;
+      }
+      
+      // Limpiar estados ANTES de recargar
+      setShowModal(false);
+      setEditMode(false);
+      setEditingNumber(null);
+      setBuyerName('');
+      setSelectedNumbers([]);
+      
+      // Recargar datos
+      await loadNumbers();
+      
+      setSuccess('Compra eliminada correctamente');
+      
+      // Limpiar mensaje después de 3 segundos
+      setTimeout(() => setSuccess(''), 3000);
+      
+    } catch (err) {
+      console.error('Error completo:', err);
+      setError(`Error al eliminar: ${err.message}`);
+    } finally {
+      setLoading(false);
     }
-
-    // console.log('Eliminado exitosamente'); // Para debug
-    
-    // Limpiar estados ANTES de recargar
-    setShowModal(false);
-    setEditMode(false);
-    setEditingNumber(null);
-    setBuyerName('');
-    setSelectedNumbers([]);
-    
-    // Recargar datos
-    await loadNumbers();
-    
-    setSuccess('Compra eliminada correctamente');
-    
-    // Limpiar mensaje después de 3 segundos
-    setTimeout(() => setSuccess(''), 3000);
-    
-  } catch (err) {
-    console.error('Error completo:', err);
-    setError(`Error al eliminar: ${err.message}`);
-  } finally {
-    setLoading(false);
-  }
-};
+  };
 
   const getBuyersGrouped = () => {
     const buyers = numbers
@@ -260,8 +294,12 @@ function App() {
       filtered = filtered.filter(n => n.is_sold);
     } else if (filterStatus === 'disponibles') {
       filtered = filtered.filter(n => !n.is_sold);
+    } else if (filterStatus === 'transferencia') {
+      filtered = filtered.filter(n => n.payment_method === 'transferencia');
+    } else if (filterStatus === 'efectivo') {
+      filtered = filtered.filter(n => n.payment_method === 'efectivo');
     } else if (filterStatus === 'fiados') {
-      filtered = filtered.filter(n => n.payment_method === 'fiado' || n.payment_method === 'pendiente');
+      filtered = filtered.filter(n => n.payment_method === 'fiado');
     }
 
     if (searchTerm) {
@@ -285,7 +323,7 @@ function App() {
           <div className="logo-section">
             <h1>SORTEO</h1>
             <div className="prize-amount">$3000 cada número</div>
-            <div className="store-name">Alias:unidos.store</div>
+            <div className="store-name">Alias: unidos.store</div>
           </div>
           
           <form onSubmit={handleLogin}>
@@ -310,17 +348,26 @@ function App() {
   const buyersGrouped = getBuyersGrouped();
   const soldCount = numbers.filter(n => n.is_sold).length;
   const availableCount = numbers.filter(n => !n.is_sold).length;
-  const fiadosCount = numbers.filter(n => n.payment_method === 'fiado' || n.payment_method === 'pendiente').length;
+  const transferenciaCount = numbers.filter(n => n.payment_method === 'transferencia').length;
+  const efectivoCount = numbers.filter(n => n.payment_method === 'efectivo').length;
+  const fiadosCount = numbers.filter(n => n.payment_method === 'fiado').length;
 
   return (
     <div className="app-container">
       <div className="main-screen">
         <div className="header">
           <h1>SORTEO</h1>
+          <button 
+            className="logout-button"
+            onClick={handleLogout}
+            title="Cerrar sesión"
+          >
+            🚪 Salir
+          </button>
         </div>
 
         <div className="prizes-section">
-          <h2>premios</h2>
+          <h2>Premios</h2>
           <div className="prizes-list">
             {PRIZES.map((prize, idx) => (
               <div key={idx} className="prize-item">
@@ -330,7 +377,7 @@ function App() {
           </div>
           <div className="prize-footer">
             <span className="price">$3000 cada número</span>
-            <span className="alias">Alias:unidos.store</span>
+            <span className="alias">Alias: unidos.store</span>
           </div>
         </div>
 
@@ -398,11 +445,26 @@ function App() {
             >
               Disponibles ({availableCount})
             </button>
+          </div>
+
+          <div className="filter-buttons" style={{marginTop: '8px'}}>
+            <button 
+              className={`filter-btn ${filterStatus === 'transferencia' ? 'active' : ''}`}
+              onClick={() => setFilterStatus('transferencia')}
+            >
+              💳 Transferencia ({transferenciaCount})
+            </button>
+            <button 
+              className={`filter-btn ${filterStatus === 'efectivo' ? 'active' : ''}`}
+              onClick={() => setFilterStatus('efectivo')}
+            >
+              💵 Efectivo ({efectivoCount})
+            </button>
             <button 
               className={`filter-btn ${filterStatus === 'fiados' ? 'active' : ''}`}
               onClick={() => setFilterStatus('fiados')}
             >
-              Fiados ({fiadosCount})
+              📝 Fiados ({fiadosCount})
             </button>
           </div>
 
@@ -521,21 +583,12 @@ function App() {
                 >
                   Efectivo
                 </button>
-              </div>
-              <div className="payment-buttons" style={{marginTop: '8px'}}>
                 <button
                   className={`payment-option ${paymentMethod === 'fiado' ? 'active' : ''}`}
                   onClick={() => setPaymentMethod('fiado')}
                   type="button"
                 >
                   Fiado/Anotado
-                </button>
-                <button
-                  className={`payment-option ${paymentMethod === 'pendiente' ? 'active' : ''}`}
-                  onClick={() => setPaymentMethod('pendiente')}
-                  type="button"
-                >
-                  Pendiente
                 </button>
               </div>
             </div>
@@ -634,7 +687,6 @@ function App() {
                       {n.payment_method === 'transferencia' && '💳 Transferencia'}
                       {n.payment_method === 'efectivo' && '💵 Efectivo'}
                       {n.payment_method === 'fiado' && '📝 Fiado'}
-                      {n.payment_method === 'pendiente' && '⏳ Pendiente'}
                     </span>
                     <span className="seller-info">Vendió: {n.seller}</span>
                     {n.sold_at && (

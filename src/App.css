@@ -37,7 +37,11 @@ body {
 .header {
   background: white;
   text-align: center;
-  padding: 12px 0 0 0;
+  padding: 12px 16px 0 16px;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .header h1 {
@@ -47,6 +51,28 @@ body {
   color: var(--text-dark);
   margin: 0;
   line-height: 1;
+}
+
+/* BOTÓN DE LOGOUT - NUEVO */
+.logout-button {
+  position: absolute;
+  right: 16px;
+  top: 50%;
+  transform: translateY(-50%);
+  padding: 8px 16px;
+  background: #FF3B30;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-family: 'Poppins', sans-serif;
+}
+
+.logout-button:active {
+  transform: translateY(-50%) scale(0.95);
 }
 
 .prizes-section {
@@ -785,6 +811,11 @@ body {
   .header h1 {
     font-size: 38px;
   }
+
+  .logout-button {
+    font-size: 11px;
+    padding: 6px 12px;
+  }
 }
 
 @media (max-width: 400px) {
@@ -799,5 +830,10 @@ body {
 
   .header h1 {
     font-size: 36px;
+  }
+
+  .logout-button {
+    font-size: 10px;
+    padding: 5px 10px;
   }
 }
