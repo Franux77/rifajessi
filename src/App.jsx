@@ -19,7 +19,9 @@ const PRIZES = [
   '7_perfume Monique de hombre',
   '8_perfume de mujer Monique',
   '9_remera de algodón',
-  '10_porta sahumerio.'
+  '10_porta sahumerio.',
+  '11_Una oferta de hamburuesas especial + papas fritas.',
+  '12_Un alisado.',
 ];
 
 const SELLERS = ['Jessica', 'Rama'];
