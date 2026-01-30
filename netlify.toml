@@ -1,13 +1,32 @@
 [[headers]]
-  for = "/*"
-  [headers.values]
-    X-Frame-Options = "DENY"
-    X-Content-Type-Options = "nosniff"
-
-[[headers]]
-  for = "/assets/*"
+  for = "/*.js"
   [headers.values]
     Content-Type = "application/javascript; charset=utf-8"
+
+[[headers]]
+  for = "/assets/*.js"
+  [headers.values]
+    Content-Type = "application/javascript; charset=utf-8"
+
+[[headers]]
+  for = "/assets/*.css"
+  [headers.values]
+    Content-Type = "text/css; charset=utf-8"
+
+[[headers]]
+  for = "/assets/*.png"
+  [headers.values]
+    Content-Type = "image/png"
+
+[[headers]]
+  for = "/assets/*.jpg"
+  [headers.values]
+    Content-Type = "image/jpeg"
+
+[[headers]]
+  for = "/assets/*.svg"
+  [headers.values]
+    Content-Type = "image/svg+xml"
 
 [build]
   command = "npm run build"
